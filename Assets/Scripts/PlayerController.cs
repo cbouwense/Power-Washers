@@ -14,6 +14,7 @@ public class PlayerController : MonoBehaviour
     private int jumps = 2;
 
     private float constantSpeedForce, stoppingForce;
+    private float airForce = 500;
     private float runningSpeed = 10;
     private float jumpSpeed = 7.5f;
     private float currentXForce, currentYForce;
@@ -93,11 +94,18 @@ public class PlayerController : MonoBehaviour
 
                 currentXForce = 0;
 
-                // Want to move dash
+                // Want to move
                 if (moveable && (Input.GetKey(left) || Input.GetKey(right)))
                 {
-                    dashFrames = 0;
-                    hState = HState.dashing;
+                    if (grounded)
+                    {
+                        dashFrames = 0;
+                        hState = HState.dashing;
+                    }
+                    else
+                    {
+                        hState = HState.running;
+                    }
                 }
 
                 break;
@@ -109,37 +117,39 @@ public class PlayerController : MonoBehaviour
                 if (moveable)
                 {
                     // Want to dash left
-                    if (Input.GetKey(left) /*&& !Input.GetKey(right)*/)
+                    if (Input.GetKey(left))
                     {
                         // If we are moving to the right and slam left or we are already moving left
                         if (rb2d.velocity.x <= 0)
                         {
-                            rb2d.velocity = new Vector2(-runningSpeed, 0);
+                            rb2d.velocity = new Vector2(-runningSpeed, rb2d.velocity.y);
                         }
                         else if (rb2d.velocity.x > 0 && dashFrames < 20)
                         {
                             dashFrames = 0;
-                            rb2d.velocity = new Vector2(-runningSpeed, 0);
+                            rb2d.velocity = new Vector2(-runningSpeed, rb2d.velocity.y);
                         }
-                        if (dashFrames >= 20)
+
+                        if (dashFrames >= 20 || !grounded)
                         {
                             hState = HState.running;
                         }
                     }
                     // Want to dash right
-                    else if (Input.GetKey(right) /*&& !Input.GetKey(left)*/)
+                    else if (Input.GetKey(right))
                     {
-                        // If we are moving left and slam right or we are already moving right
+                        // If we are moving left and slam right
                         if (rb2d.velocity.x >= 0)
                         {
-                            rb2d.velocity = new Vector2(runningSpeed, 0);
+                            rb2d.velocity = new Vector2(runningSpeed, rb2d.velocity.y);
                         }
                         else if (rb2d.velocity.x < 0 && dashFrames < 20)
                         {
                             dashFrames = 0;
-                            rb2d.velocity = new Vector2(runningSpeed, 0);
+                            rb2d.velocity = new Vector2(runningSpeed, rb2d.velocity.y);
                         }
-                        if (dashFrames >= 20)
+
+                        if (dashFrames >= 20 || !grounded)
                         {
                             hState = HState.running;
                         }
@@ -157,17 +167,35 @@ public class PlayerController : MonoBehaviour
                 Debug.Log("running");
                 changeAnim("running");
 
-                if (rb2d.velocity.x < 0 && Input.GetKey(left))
+                if (grounded)
                 {
-                    currentXForce = -constantSpeedForce;
-                }
-                else if (rb2d.velocity.x > 0 && Input.GetKey(right))
-                {
-                    currentXForce = constantSpeedForce;
+                    if (rb2d.velocity.x < 0 && Input.GetKey(left))
+                    {
+                        currentXForce = -constantSpeedForce;
+                    }
+                    else if (rb2d.velocity.x > 0 && Input.GetKey(right))
+                    {
+                        currentXForce = constantSpeedForce;
+                    }
+                    else
+                    {
+                        hState = HState.stopping;
+                    }
                 }
                 else
                 {
-                    hState = HState.stopping;
+                    // Moving left normally
+                    if (rb2d.velocity.x <= 0 && Input.GetKey(left) && Mathf.Abs(rb2d.velocity.x) < 10)
+                    {
+                        currentXForce = -airForce;
+                    }
+                    // Moving right normally
+                    else if (rb2d.velocity.x >= 0 && Input.GetKey(right) && Mathf.Abs(rb2d.velocity.x) < 10 ||
+                        rb2d.velocity.x < 0 && Input.GetKey(right))
+                    {
+                        currentXForce = airForce;
+                    }
+                    
                 }
 
                 break;
@@ -256,7 +284,21 @@ public class PlayerController : MonoBehaviour
                 if (Input.GetKeyDown(jump) && jumpable)
                 {
                     changeAnim("squatting");
-                    rb2d.velocity = new Vector2(rb2d.velocity.x, jumpSpeed);
+
+                    // Snap from left to right
+                    if (rb2d.velocity.x > 0 && Input.GetKey(left))
+                    {
+                        rb2d.velocity = new Vector2(-runningSpeed, jumpSpeed);
+                    }
+                    // Snap from right to left
+                    else if (rb2d.velocity.x < 0 && Input.GetKey(right))
+                    {
+                        rb2d.velocity = new Vector2(runningSpeed, jumpSpeed);
+                    }
+                    else
+                    {
+                        rb2d.velocity = new Vector2(rb2d.velocity.x, jumpSpeed);
+                    }
                     jumpable = false;
                     jumps--;
                 }
@@ -293,7 +335,7 @@ public class PlayerController : MonoBehaviour
         {
             jumpable = true;
         }
-        Debug.Log("jumpable: " + jumpable);
+        //Debug.Log("jumpable: " + jumpable);
 
         //Debug.Log("grounded: " + grounded);
         
@@ -308,7 +350,8 @@ public class PlayerController : MonoBehaviour
         }
 
         move = new Vector2(currentXForce, currentYForce);
-        //Debug.Log("move: " + move);
+        Debug.Log("velocity: " + rb2d.velocity);
+        Debug.Log("move: " + move);
 
     }
 
