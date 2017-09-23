@@ -8,16 +8,18 @@ public class PlayerController : MonoBehaviour
     public PhysicsMaterial2D playerMat;
 
     private bool moveable { get; set; }
+    private bool jumpable;
     private bool crouching = false;
+    [SerializeField] private bool grounded;
+    private int jumps = 2;
 
-    private float maxForce = 2500f;
-    private float constantSpeedForce;
-    private float stoppingForce;
+    private float constantSpeedForce, stoppingForce;
     private float runningSpeed = 10;
-    //private float crouchSpeed = 5;
-    private float currentForce;
+    private float jumpSpeed = 7.5f;
+    private float currentXForce, currentYForce;
     
     private float jumpTakeOffSpeed = 15;
+    private bool justJumped;
 
     private KeyCode left, right, crouch, jump;
 
@@ -26,10 +28,12 @@ public class PlayerController : MonoBehaviour
     private SpriteRenderer sr;
     private Vector2 move;
 
-    private enum MovementState { idle, dashing, running, stopping }
-    private MovementState state = MovementState.idle;
+    private enum HState { idle, dashing, running, stopping }
+    private enum VState { grounded, squatting, air, landing }
+    private HState hState = HState.idle;
+    private VState vState = VState.grounded;
 
-    private int dashFrames;
+    private int dashFrames, squatFrames, landingFrames;
 
     void Start()
     {
@@ -52,6 +56,7 @@ public class PlayerController : MonoBehaviour
         }
 
         moveable = true;
+        jumpable = true;
 
         rb2d = GetComponent<Rigidbody2D>();
         rb2d.freezeRotation = true;
@@ -66,42 +71,46 @@ public class PlayerController : MonoBehaviour
     void Update()
     {
 
+        // Vector of wanted movement
         move = new Vector2();
-        
-        switch (state)
+
+        grounded = isGrounded();
+
+        // Components of move
+        currentXForce = 0;
+        currentYForce = 0;
+
+        // Reset animations
+        resetAnim();
+
+        // Horizontal movement state machine
+        switch (hState)
         {
 
-            case MovementState.idle:
+            case HState.idle:
                 Debug.Log("idle");
-                anim.SetBool("idle", true);
-                anim.SetBool("dashing", false);
-                anim.SetBool("running", false);
-                anim.SetBool("stopping", false);
+                changeAnim("idle");
 
-                currentForce = 0;
+                currentXForce = 0;
 
                 // Want to move dash
                 if (moveable && (Input.GetKey(left) || Input.GetKey(right)))
                 {
                     dashFrames = 0;
-                    state = MovementState.dashing;
+                    hState = HState.dashing;
                 }
 
                 break;
 
-            case MovementState.dashing:
+            case HState.dashing:
                 Debug.Log("dashing");
-                anim.SetBool("idle", false);
-                anim.SetBool("dashing", true);
-                anim.SetBool("running", false);
-                anim.SetBool("stopping", false);
+                changeAnim("dashing");
 
                 if (moveable)
                 {
                     // Want to dash left
                     if (Input.GetKey(left) /*&& !Input.GetKey(right)*/)
                     {
-                        Debug.Log("dashFrames: " + dashFrames);
                         // If we are moving to the right and slam left or we are already moving left
                         if (rb2d.velocity.x <= 0)
                         {
@@ -109,20 +118,17 @@ public class PlayerController : MonoBehaviour
                         }
                         else if (rb2d.velocity.x > 0 && dashFrames < 20)
                         {
-                            sr.flipX = true;
                             dashFrames = 0;
                             rb2d.velocity = new Vector2(-runningSpeed, 0);
                         }
                         if (dashFrames >= 20)
                         {
-                            Debug.Log("changed to running because ran out of frames");
-                            state = MovementState.running;
+                            hState = HState.running;
                         }
                     }
                     // Want to dash right
                     else if (Input.GetKey(right) /*&& !Input.GetKey(left)*/)
                     {
-                        Debug.Log("dashFrames: " + dashFrames);
                         // If we are moving left and slam right or we are already moving right
                         if (rb2d.velocity.x >= 0)
                         {
@@ -131,82 +137,228 @@ public class PlayerController : MonoBehaviour
                         else if (rb2d.velocity.x < 0 && dashFrames < 20)
                         {
                             dashFrames = 0;
-                            sr.flipX = false;
                             rb2d.velocity = new Vector2(runningSpeed, 0);
                         }
                         if (dashFrames >= 20)
                         {
-                            Debug.Log("changed to running because ran out of frames");
-                            state = MovementState.running;
+                            hState = HState.running;
                         }
                     }
                     else
                     {
-                        state = MovementState.stopping;
+                        hState = HState.stopping;
                     }
                     dashFrames++;
                 }
 
                 break;
 
-            case MovementState.running:
+            case HState.running:
                 Debug.Log("running");
-                anim.SetBool("idle", false);
-                anim.SetBool("dashing", false);
-                anim.SetBool("running", true);
-                anim.SetBool("stopping", false);
+                changeAnim("running");
 
                 if (rb2d.velocity.x < 0 && Input.GetKey(left))
                 {
-                    currentForce = -constantSpeedForce;
+                    currentXForce = -constantSpeedForce;
                 }
                 else if (rb2d.velocity.x > 0 && Input.GetKey(right))
                 {
-                    currentForce = constantSpeedForce;
+                    currentXForce = constantSpeedForce;
                 }
                 else
                 {
-                    state = MovementState.stopping;
+                    hState = HState.stopping;
                 }
 
                 break;
 
-            case MovementState.stopping:
+            case HState.stopping:
                 Debug.Log("stopping");
-                anim.SetBool("idle", false);
-                anim.SetBool("dashing", false);
-                anim.SetBool("running", false);
-                anim.SetBool("stopping", true);
+                changeAnim("stopping");
 
                 // If we are going left
                 if (rb2d.velocity.x < 0)
                 {
-                    currentForce = stoppingForce;
+                    currentXForce = stoppingForce;
                 } 
                 else
                 {
-                    currentForce = -stoppingForce;
+                    currentXForce = -stoppingForce;
                 }
 
                 if (Mathf.Abs(rb2d.velocity.x) <= 0.5f)
                 {
-                    currentForce = 0;
-                    state = MovementState.idle;
+                    currentXForce = 0;
+                    hState = HState.idle;
                 }
 
                 break;
 
         }
 
-        Debug.Log("currentForce: " + currentForce);
-        move = new Vector2(currentForce, 0);
-        Debug.Log("velocity: " + rb2d.velocity);
+        // Vertical movement state machine
+        switch (vState)
+        {
+            
+            case VState.grounded:
+                Debug.Log("grounded");
+                changeAnim("grounded");
+
+                jumps = 2;
+
+                if (Input.GetKeyDown(jump) && jumpable)
+                {
+                    jumps--;
+                    jumpable = false;
+                    squatFrames = 0;
+                    vState = VState.squatting;
+                    // Have to do this because no intentional fallthrough in C#
+                    goto case VState.squatting;
+                }
+
+                if (rb2d.velocity.y < -0.001)
+                {
+                    vState = VState.air;
+                }
+
+                break;
+
+            case VState.squatting:
+                Debug.Log("squatting");
+                changeAnim("squatting");
+
+                if (squatFrames < 4)
+                {
+                    squatFrames++;
+                }
+                else
+                {
+                    rb2d.velocity = new Vector2(rb2d.velocity.x, jumpSpeed);
+                    jumpable = false;
+                    justJumped = true;
+                    vState = VState.air;
+                }
+
+                break;
+
+            case VState.air:
+                Debug.Log("air");
+                if (rb2d.velocity.y > 0)
+                {
+                    changeAnim("air");
+                }
+                else
+                {
+                    changeAnim("falling");
+                }
+
+                // Double jump
+                if (Input.GetKeyDown(jump) && jumpable)
+                {
+                    changeAnim("squatting");
+                    rb2d.velocity = new Vector2(rb2d.velocity.x, jumpSpeed);
+                    jumpable = false;
+                    jumps--;
+                }
+
+                if (grounded && !justJumped)
+                {
+                    landingFrames = 0;
+                    vState = VState.landing;
+                }
+
+                justJumped = false;
+
+                break;
+
+            case VState.landing:
+                Debug.Log("landing");
+                changeAnim("landing");
+
+                if (landingFrames < 4)
+                {
+                    landingFrames++;
+                }
+                else
+                {
+                    vState = VState.grounded;
+                }
+
+                break;
+
+        }
+
+        if (Input.GetKeyUp(jump) && jumps > 0 ||
+            isGrounded())
+        {
+            jumpable = true;
+        }
+        Debug.Log("jumpable: " + jumpable);
+
+        //Debug.Log("grounded: " + grounded);
+        
+        // Make character face way you want to go
+        if (Input.GetKey(left))
+        {
+            sr.flipX = true;
+        }
+        else if (Input.GetKey(right))
+        {
+            sr.flipX = false;
+        }
+
+        move = new Vector2(currentXForce, currentYForce);
+        //Debug.Log("move: " + move);
 
     }
 
     void FixedUpdate()
     {
         rb2d.AddForce(move);
+    }
+
+    private bool isGrounded()
+    {
+        Vector2[] origins = new Vector2[3];
+        RaycastHit2D[] hits = new RaycastHit2D[3];
+        float xBaseOffset = -0.1f;
+        float yBaseOffset = -0.66f;
+        float checkDistance = 0.01f;
+        for (int i = 0; i < origins.Length; i++)
+        {
+            origins[i] = new Vector2(transform.position.x + xBaseOffset, transform.position.y + yBaseOffset);
+            Debug.DrawLine(origins[i], new Vector2(origins[i].x, origins[i].y - checkDistance));
+            xBaseOffset += 0.1f;
+            hits[i] = Physics2D.Raycast(origins[i], Vector2.up, checkDistance);
+            if (hits[i].collider != null)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void changeAnim(string state)
+    {
+        string[] states = {"idle", "dashing", "running", "stopping",
+                           "grounded", "squatting", "air", "falling", "landing"};
+        for (int i = 0; i < states.Length; i++)
+        {
+            if (state == states[i])
+            {
+                anim.SetBool(states[i], true);
+            }
+        }
+    }
+
+    void resetAnim()
+    {
+        string[] states = {"idle", "dashing", "running", "stopping",
+                           "grounded", "squatting", "air", "falling", "landing"};
+        for (int i = 0; i < states.Length; i++)
+        {
+            anim.SetBool(states[i], false);
+        }
     }
 
 }
