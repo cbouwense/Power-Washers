@@ -57,6 +57,7 @@ public class PhysicsObject : MonoBehaviour
 
         move = Vector2.up * deltaPosition.y;
         Movement(move, 'y');
+
     }
 
     protected void Movement(Vector2 move, char axis)
