@@ -5,10 +5,10 @@ using UnityEngine;
 public class CameraController : MonoBehaviour {
 
     private enum CameraState { start, panUp, stop, targetWinrar }
-    private CameraState state = CameraState.start;
+    [SerializeField]private CameraState state = CameraState.start;
 
     private float panTimer = 0;
-    private float panThreshold = 15;
+    private float panThreshold = 10;
 
     private GameObject winrar;
     private Camera camera;
@@ -36,7 +36,9 @@ public class CameraController : MonoBehaviour {
 
             case CameraState.panUp:
 
-                
+                transform.position = new Vector3(transform.position.x,
+                                                 transform.position.y + 0.002f,
+                                                 transform.position.z);
 
                 break;
 

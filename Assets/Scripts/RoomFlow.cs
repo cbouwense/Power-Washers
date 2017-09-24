@@ -11,16 +11,16 @@ public class RoomFlow : MonoBehaviour {
     private GameObject winrar;
 
     private enum GameState { spawnMesses, ready, play, done }
-    private GameState state = GameState.spawnMesses;
+    [SerializeField]private GameState state = GameState.spawnMesses;
     private Vector2[] spawnPos;
     private GameObject[] messes;
     private float readyTimer = 3;
-    private int messCount = 50;
+    private int messCount = 45;
 
     private PlayerController pc1, pc2;
 
     // How much you need to clean to win
-    private float cleanedWin = 50000;
+    private float cleanedWin = 1500;
 
 	// Use this for initialization
 	void Start () {
@@ -67,6 +67,19 @@ public class RoomFlow : MonoBehaviour {
             spawnPos[29] = new Vector2(5.88f, 26.66f);
             spawnPos[30] = new Vector2(7.86f, 26.66f);
             spawnPos[31] = new Vector2(5.94f, 31.81f);
+            spawnPos[32] = new Vector2(1.03f, 33.25f);
+            spawnPos[33] = new Vector2(2.93f, 33.25f);
+            spawnPos[34] = new Vector2(8.87f, 33.25f);
+            spawnPos[35] = new Vector2(10.83f, 33.25f);
+            spawnPos[36] = new Vector2(0.09f, 38.38f);
+            spawnPos[37] = new Vector2(1.94f, 38.38f);
+            spawnPos[38] = new Vector2(3.88f, 38.38f);
+            spawnPos[39] = new Vector2(7.92f, 38.38f);
+            spawnPos[40] = new Vector2(9.82f, 38.38f);
+            spawnPos[41] = new Vector2(11.78f, 38.38f);
+            spawnPos[42] = new Vector2(3.97f, 44.18f);
+            spawnPos[43] = new Vector2(5.87f, 44.18f);
+            spawnPos[44] = new Vector2(7.81f, 44.18f);
         }
 
         pc1 = p1.GetComponent<PlayerController>();
@@ -93,8 +106,6 @@ public class RoomFlow : MonoBehaviour {
                 goto case GameState.ready;
 
             case GameState.ready:
-
-                
 
                 // TODO Implement ready, go! timer
                 state = GameState.play;
