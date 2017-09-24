@@ -9,20 +9,22 @@ public class PlayerController : MonoBehaviour
 
     private bool moveable { get; set; }
     private bool jumpable;
-    private bool crouching = false;
     [SerializeField] private bool grounded;
     private int jumps = 2;
 
+    private float normalMass = 40;
+    private float fastMass = 80;
+
     private float constantSpeedForce, stoppingForce;
-    private float airForce = 500;
-    private float runningSpeed = 10;
-    private float jumpSpeed = 7.5f;
+    private float airForce = 900;
+    private float runningSpeed = 5;
+    private float firstJumpSpeed = 6.35f;
+    private float secondJumpSpeed = 6f;
     private float currentXForce, currentYForce;
     
-    private float jumpTakeOffSpeed = 15;
     private bool justJumped;
 
-    private KeyCode left, right, crouch, jump;
+    private KeyCode left, right, down, jump;
 
     private Rigidbody2D rb2d;
     private Animator anim;
@@ -34,9 +36,13 @@ public class PlayerController : MonoBehaviour
     private HState hState = HState.idle;
     private VState vState = VState.grounded;
 
+    public bool onMess = false;
+    public bool cleaning = false;
+    public float cleaned = 0;
+
     private int dashFrames, squatFrames, landingFrames;
 
-    void Start()
+    private void Start()
     {
         Application.targetFrameRate = 60;
         Physics2D.gravity = new Vector3(0, -10, 0);
@@ -45,14 +51,14 @@ public class PlayerController : MonoBehaviour
         {
             left = KeyCode.A;
             right = KeyCode.D;
-            crouch = KeyCode.S;
+            down = KeyCode.S;
             jump = KeyCode.W;
         }
         else if (name == "Player2")
         {
             left = KeyCode.LeftArrow;
             right = KeyCode.RightArrow;
-            crouch = KeyCode.DownArrow;
+            down = KeyCode.DownArrow;
             jump = KeyCode.UpArrow;
         }
 
@@ -69,17 +75,18 @@ public class PlayerController : MonoBehaviour
 
     }
 
-    void Update()
+    private void Update()
     {
 
         // Vector of wanted movement
         move = new Vector2();
 
-        grounded = isGrounded();
-
         // Components of move
         currentXForce = 0;
         currentYForce = 0;
+
+        // Update value of grounded
+        grounded = isGrounded();
 
         // Reset animations
         resetAnim();
@@ -89,7 +96,7 @@ public class PlayerController : MonoBehaviour
         {
 
             case HState.idle:
-                Debug.Log("idle");
+                //Debug.Log("idle");
                 changeAnim("idle");
 
                 currentXForce = 0;
@@ -111,8 +118,15 @@ public class PlayerController : MonoBehaviour
                 break;
 
             case HState.dashing:
-                Debug.Log("dashing");
-                changeAnim("dashing");
+                //Debug.Log("dashing");
+                if (!cleaning)
+                {
+                    changeAnim("dashing");
+                }
+                else
+                {
+                    changeAnim("cleaning");
+                }
 
                 if (moveable)
                 {
@@ -164,7 +178,7 @@ public class PlayerController : MonoBehaviour
                 break;
 
             case HState.running:
-                Debug.Log("running");
+                //Debug.Log("running");
                 changeAnim("running");
 
                 if (grounded)
@@ -185,12 +199,13 @@ public class PlayerController : MonoBehaviour
                 else
                 {
                     // Moving left normally
-                    if (rb2d.velocity.x <= 0 && Input.GetKey(left) && Mathf.Abs(rb2d.velocity.x) < 10)
+                    if (rb2d.velocity.x <= 0 && Input.GetKey(left) && rb2d.velocity.x >= -runningSpeed ||
+                        rb2d.velocity.x > 0 && Input.GetKey(left))
                     {
                         currentXForce = -airForce;
                     }
                     // Moving right normally
-                    else if (rb2d.velocity.x >= 0 && Input.GetKey(right) && Mathf.Abs(rb2d.velocity.x) < 10 ||
+                    else if (rb2d.velocity.x >= 0 && Input.GetKey(right) && rb2d.velocity.x <= runningSpeed ||
                         rb2d.velocity.x < 0 && Input.GetKey(right))
                     {
                         currentXForce = airForce;
@@ -201,7 +216,7 @@ public class PlayerController : MonoBehaviour
                 break;
 
             case HState.stopping:
-                Debug.Log("stopping");
+                //Debug.Log("stopping");
                 changeAnim("stopping");
 
                 // If we are going left
@@ -229,7 +244,7 @@ public class PlayerController : MonoBehaviour
         {
             
             case VState.grounded:
-                Debug.Log("grounded");
+                //Debug.Log("grounded");
                 changeAnim("grounded");
 
                 jumps = 2;
@@ -252,7 +267,7 @@ public class PlayerController : MonoBehaviour
                 break;
 
             case VState.squatting:
-                Debug.Log("squatting");
+                //Debug.Log("squatting");
                 changeAnim("squatting");
 
                 if (squatFrames < 4)
@@ -261,7 +276,7 @@ public class PlayerController : MonoBehaviour
                 }
                 else
                 {
-                    rb2d.velocity = new Vector2(rb2d.velocity.x, jumpSpeed);
+                    rb2d.velocity = new Vector2(rb2d.velocity.x, firstJumpSpeed);
                     jumpable = false;
                     justJumped = true;
                     vState = VState.air;
@@ -270,7 +285,7 @@ public class PlayerController : MonoBehaviour
                 break;
 
             case VState.air:
-                Debug.Log("air");
+                //Debug.Log("air");
                 if (rb2d.velocity.y > 0)
                 {
                     changeAnim("air");
@@ -288,16 +303,16 @@ public class PlayerController : MonoBehaviour
                     // Snap from left to right
                     if (rb2d.velocity.x > 0 && Input.GetKey(left))
                     {
-                        rb2d.velocity = new Vector2(-runningSpeed, jumpSpeed);
+                        rb2d.velocity = new Vector2(-runningSpeed, secondJumpSpeed);
                     }
                     // Snap from right to left
                     else if (rb2d.velocity.x < 0 && Input.GetKey(right))
                     {
-                        rb2d.velocity = new Vector2(runningSpeed, jumpSpeed);
+                        rb2d.velocity = new Vector2(runningSpeed, secondJumpSpeed);
                     }
                     else
                     {
-                        rb2d.velocity = new Vector2(rb2d.velocity.x, jumpSpeed);
+                        rb2d.velocity = new Vector2(rb2d.velocity.x, secondJumpSpeed);
                     }
                     jumpable = false;
                     jumps--;
@@ -314,7 +329,7 @@ public class PlayerController : MonoBehaviour
                 break;
 
             case VState.landing:
-                Debug.Log("landing");
+                //Debug.Log("landing");
                 changeAnim("landing");
 
                 if (landingFrames < 4)
@@ -330,32 +345,45 @@ public class PlayerController : MonoBehaviour
 
         }
 
+        // Fast falling
+        if (Input.GetKey(down) && !grounded)
+        {
+            rb2d.gravityScale = 5;
+        }
+        else
+        {
+            rb2d.gravityScale = 1;
+        }
+
+        // Reset jumpability if you should be able to jump
         if (Input.GetKeyUp(jump) && jumps > 0 ||
             isGrounded())
         {
             jumpable = true;
         }
-        //Debug.Log("jumpable: " + jumpable);
 
-        //Debug.Log("grounded: " + grounded);
-        
         // Make character face way you want to go
-        if (Input.GetKey(left))
+        if (!cleaning)
         {
-            sr.flipX = true;
-        }
-        else if (Input.GetKey(right))
-        {
-            sr.flipX = false;
+            if (Input.GetKey(left))
+            {
+                sr.flipX = true;
+            }
+            else if (Input.GetKey(right))
+            {
+                sr.flipX = false;
+            }
         }
 
+        // Update value of cleaning
+        cleaning = (onMess && hState == HState.dashing);
+
+        // Set the components of move from the state machines
         move = new Vector2(currentXForce, currentYForce);
-        Debug.Log("velocity: " + rb2d.velocity);
-        Debug.Log("move: " + move);
 
     }
 
-    void FixedUpdate()
+    private void FixedUpdate()
     {
         rb2d.AddForce(move);
     }
@@ -370,7 +398,7 @@ public class PlayerController : MonoBehaviour
         for (int i = 0; i < origins.Length; i++)
         {
             origins[i] = new Vector2(transform.position.x + xBaseOffset, transform.position.y + yBaseOffset);
-            Debug.DrawLine(origins[i], new Vector2(origins[i].x, origins[i].y - checkDistance));
+            //Debug.DrawLine(origins[i], new Vector2(origins[i].x, origins[i].y - checkDistance));
             xBaseOffset += 0.1f;
             hits[i] = Physics2D.Raycast(origins[i], Vector2.up, checkDistance);
             if (hits[i].collider != null)
@@ -381,10 +409,11 @@ public class PlayerController : MonoBehaviour
         return false;
     }
 
-    void changeAnim(string state)
+    private void changeAnim(string state)
     {
         string[] states = {"idle", "dashing", "running", "stopping",
-                           "grounded", "squatting", "air", "falling", "landing"};
+                           "grounded", "squatting", "air", "falling", "landing",
+                           "cleaning"};
         for (int i = 0; i < states.Length; i++)
         {
             if (state == states[i])
@@ -394,14 +423,25 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    void resetAnim()
+    private void resetAnim()
     {
         string[] states = {"idle", "dashing", "running", "stopping",
-                           "grounded", "squatting", "air", "falling", "landing"};
+                           "grounded", "squatting", "air", "falling", "landing",
+                           "cleaning"};
         for (int i = 0; i < states.Length; i++)
         {
             anim.SetBool(states[i], false);
         }
+    }
+
+    public bool isDashing()
+    {
+        return hState == HState.dashing;
+    }
+
+    public void Clean()
+    {
+        cleaned++;
     }
 
 }
