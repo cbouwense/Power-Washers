@@ -40,11 +40,16 @@ public class CameraController : MonoBehaviour {
                                                  transform.position.y + 0.002f,
                                                  transform.position.z);
 
+                if (transform.position.y >= 38)
+                {
+                    state = CameraState.stop;
+                }
+
                 break;
 
             case CameraState.stop:
 
-
+                // Do nothing I guess
 
                 break;
 

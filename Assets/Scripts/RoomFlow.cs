@@ -8,6 +8,7 @@ using UnityEngine.SceneManagement;
 public class RoomFlow : MonoBehaviour {
 
     public GameObject mess, p1, p2, UI, camera;
+    public GameObject replayButton, menuButton;
     private GameObject winrar;
 
     private enum GameState { spawnMesses, ready, play, done }
@@ -20,7 +21,7 @@ public class RoomFlow : MonoBehaviour {
     private PlayerController pc1, pc2;
 
     // How much you need to clean to win
-    private float cleanedWin = 1500;
+    private float cleanedWin = 1250;
 
 	// Use this for initialization
 	void Start () {
@@ -86,9 +87,9 @@ public class RoomFlow : MonoBehaviour {
         pc2 = p2.GetComponent<PlayerController>();
 
     }
-	
-	// Update is called once per frame
-	void Update () {
+
+    // Update is called once per frame
+    void Update () {
 		
         switch (state)
         {
