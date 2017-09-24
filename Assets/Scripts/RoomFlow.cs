@@ -8,7 +8,6 @@ using UnityEngine.SceneManagement;
 public class RoomFlow : MonoBehaviour {
 
     public GameObject mess, p1, p2, UI, camera;
-    public GameObject replayButton, menuButton;
     private GameObject winrar;
 
     private enum GameState { spawnMesses, ready, play, done }
@@ -21,7 +20,7 @@ public class RoomFlow : MonoBehaviour {
     private PlayerController pc1, pc2;
 
     // How much you need to clean to win
-    private float cleanedWin = 1250;
+    private float cleanedWin = 2500;
 
 	// Use this for initialization
 	void Start () {
@@ -136,12 +135,37 @@ public class RoomFlow : MonoBehaviour {
             case GameState.done:
 
                 Debug.Log(winrar.name + " wins!");
-                camera.GetComponent<CameraController>().WinrarGet(winrar);                
+                UI.GetComponent<DoneController>().WinrarGet(winrar);
+                camera.GetComponent<CameraController>().WinrarGet(winrar);
                 UI.SetActive(true);
 
                 break;
 
         }
 
+        if (camera.GetComponent<CameraController>().state == CameraController.CameraState.stop)
+        {
+            if (pc1.cleaned > pc2.cleaned)
+            {
+                winrar = p1;
+            }
+            else
+            {
+                winrar = p2;
+            }
+            state = GameState.done;
+        }
+
 	}
+
+    public void Replay()
+    {
+        Debug.Log("Replaying");
+    }
+
+    public void Menu()
+    {
+        Debug.Log("Going to menu");
+    }
+
 }

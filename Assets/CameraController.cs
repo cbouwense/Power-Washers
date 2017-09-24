@@ -4,8 +4,8 @@ using UnityEngine;
 
 public class CameraController : MonoBehaviour {
 
-    private enum CameraState { start, panUp, stop, targetWinrar }
-    [SerializeField]private CameraState state = CameraState.start;
+    public enum CameraState { start, panUp, stop, targetWinrar }
+    public CameraState state = CameraState.start;
 
     private float panTimer = 0;
     private float panThreshold = 10;
@@ -37,7 +37,7 @@ public class CameraController : MonoBehaviour {
             case CameraState.panUp:
 
                 transform.position = new Vector3(transform.position.x,
-                                                 transform.position.y + 0.002f,
+                                                 transform.position.y + 0.01f,
                                                  transform.position.z);
 
                 if (transform.position.y >= 38)
@@ -48,8 +48,7 @@ public class CameraController : MonoBehaviour {
                 break;
 
             case CameraState.stop:
-
-                // Do nothing I guess
+                
 
                 break;
 

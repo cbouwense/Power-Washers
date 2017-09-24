@@ -7,6 +7,7 @@ public class PlayerController : MonoBehaviour
 
     public PhysicsMaterial2D playerMat;
 
+    public Camera camera;
     private bool moveable { get; set; }
     private bool jumpable;
     [SerializeField] private bool grounded;
@@ -78,6 +79,13 @@ public class PlayerController : MonoBehaviour
     private void Update()
     {
 
+        if (transform.position.x < -10.33f ||
+            transform.position.x > 22.32 ||
+            transform.position.y < camera.transform.position.y - 9.42)
+        {
+            Respawn();
+        }
+
         // Vector of wanted movement
         move = new Vector2();
 
@@ -87,262 +95,270 @@ public class PlayerController : MonoBehaviour
 
         // Update value of grounded
         grounded = isGrounded();
+        if (!moveable)
+        {
+            moveable = grounded;
+        }
 
         // Reset animations
         resetAnim();
 
-        // Horizontal movement state machine
-        switch (hState)
+        
+        if (moveable)
         {
+            // Horizontal movement state machine
+            switch (hState)
+            {
 
-            case HState.idle:
-                //Debug.Log("idle");
-                changeAnim("idle");
+                case HState.idle:
+                    //Debug.Log("idle");
+                    changeAnim("idle");
 
-                currentXForce = 0;
+                    currentXForce = 0;
 
-                // Want to move
-                if (moveable && (Input.GetKey(left) || Input.GetKey(right)))
-                {
+                    // Want to move
+                    if (moveable && (Input.GetKey(left) || Input.GetKey(right)))
+                    {
+                        if (grounded)
+                        {
+                            dashFrames = 0;
+                            hState = HState.dashing;
+                        }
+                        else
+                        {
+                            hState = HState.running;
+                        }
+                    }
+
+                    break;
+
+                case HState.dashing:
+                    //Debug.Log("dashing");
+                    if (!cleaning)
+                    {
+                        changeAnim("dashing");
+                    }
+                    else
+                    {
+                        changeAnim("cleaning");
+                    }
+
+                    if (moveable)
+                    {
+                        // Want to dash left
+                        if (Input.GetKey(left))
+                        {
+                            // If we are moving to the right and slam left or we are already moving left
+                            if (rb2d.velocity.x <= 0)
+                            {
+                                rb2d.velocity = new Vector2(-runningSpeed, rb2d.velocity.y);
+                            }
+                            else if (rb2d.velocity.x > 0 && dashFrames < 20)
+                            {
+                                dashFrames = 0;
+                                rb2d.velocity = new Vector2(-runningSpeed, rb2d.velocity.y);
+                            }
+
+                            if (dashFrames >= 20 || !grounded)
+                            {
+                                hState = HState.running;
+                            }
+                        }
+                        // Want to dash right
+                        else if (Input.GetKey(right))
+                        {
+                            // If we are moving left and slam right
+                            if (rb2d.velocity.x >= 0)
+                            {
+                                rb2d.velocity = new Vector2(runningSpeed, rb2d.velocity.y);
+                            }
+                            else if (rb2d.velocity.x < 0 && dashFrames < 20)
+                            {
+                                dashFrames = 0;
+                                rb2d.velocity = new Vector2(runningSpeed, rb2d.velocity.y);
+                            }
+
+                            if (dashFrames >= 20 || !grounded)
+                            {
+                                hState = HState.running;
+                            }
+                        }
+                        else
+                        {
+                            hState = HState.stopping;
+                        }
+                        dashFrames++;
+                    }
+
+                    break;
+
+                case HState.running:
+                    //Debug.Log("running");
+                    changeAnim("running");
+
                     if (grounded)
                     {
-                        dashFrames = 0;
-                        hState = HState.dashing;
-                    }
-                    else
-                    {
-                        hState = HState.running;
-                    }
-                }
-
-                break;
-
-            case HState.dashing:
-                //Debug.Log("dashing");
-                if (!cleaning)
-                {
-                    changeAnim("dashing");
-                }
-                else
-                {
-                    changeAnim("cleaning");
-                }
-
-                if (moveable)
-                {
-                    // Want to dash left
-                    if (Input.GetKey(left))
-                    {
-                        // If we are moving to the right and slam left or we are already moving left
-                        if (rb2d.velocity.x <= 0)
+                        if (rb2d.velocity.x < 0 && Input.GetKey(left))
                         {
-                            rb2d.velocity = new Vector2(-runningSpeed, rb2d.velocity.y);
+                            currentXForce = -constantSpeedForce;
                         }
-                        else if (rb2d.velocity.x > 0 && dashFrames < 20)
+                        else if (rb2d.velocity.x > 0 && Input.GetKey(right))
                         {
-                            dashFrames = 0;
-                            rb2d.velocity = new Vector2(-runningSpeed, rb2d.velocity.y);
+                            currentXForce = constantSpeedForce;
                         }
-
-                        if (dashFrames >= 20 || !grounded)
+                        else
                         {
-                            hState = HState.running;
-                        }
-                    }
-                    // Want to dash right
-                    else if (Input.GetKey(right))
-                    {
-                        // If we are moving left and slam right
-                        if (rb2d.velocity.x >= 0)
-                        {
-                            rb2d.velocity = new Vector2(runningSpeed, rb2d.velocity.y);
-                        }
-                        else if (rb2d.velocity.x < 0 && dashFrames < 20)
-                        {
-                            dashFrames = 0;
-                            rb2d.velocity = new Vector2(runningSpeed, rb2d.velocity.y);
-                        }
-
-                        if (dashFrames >= 20 || !grounded)
-                        {
-                            hState = HState.running;
+                            hState = HState.stopping;
                         }
                     }
                     else
                     {
-                        hState = HState.stopping;
+                        // Moving left normally
+                        if (rb2d.velocity.x <= 0 && Input.GetKey(left) && rb2d.velocity.x >= -runningSpeed ||
+                            rb2d.velocity.x > 0 && Input.GetKey(left))
+                        {
+                            currentXForce = -airForce;
+                        }
+                        // Moving right normally
+                        else if (rb2d.velocity.x >= 0 && Input.GetKey(right) && rb2d.velocity.x <= runningSpeed ||
+                            rb2d.velocity.x < 0 && Input.GetKey(right))
+                        {
+                            currentXForce = airForce;
+                        }
+
                     }
-                    dashFrames++;
-                }
 
-                break;
+                    break;
 
-            case HState.running:
-                //Debug.Log("running");
-                changeAnim("running");
+                case HState.stopping:
+                    //Debug.Log("stopping");
+                    changeAnim("stopping");
 
-                if (grounded)
-                {
-                    if (rb2d.velocity.x < 0 && Input.GetKey(left))
+                    // If we are going left
+                    if (rb2d.velocity.x < 0)
                     {
-                        currentXForce = -constantSpeedForce;
-                    }
-                    else if (rb2d.velocity.x > 0 && Input.GetKey(right))
-                    {
-                        currentXForce = constantSpeedForce;
+                        currentXForce = stoppingForce;
                     }
                     else
                     {
-                        hState = HState.stopping;
+                        currentXForce = -stoppingForce;
                     }
-                }
-                else
-                {
-                    // Moving left normally
-                    if (rb2d.velocity.x <= 0 && Input.GetKey(left) && rb2d.velocity.x >= -runningSpeed ||
-                        rb2d.velocity.x > 0 && Input.GetKey(left))
+
+                    if (Mathf.Abs(rb2d.velocity.x) <= 0.5f)
                     {
-                        currentXForce = -airForce;
+                        currentXForce = 0;
+                        hState = HState.idle;
                     }
-                    // Moving right normally
-                    else if (rb2d.velocity.x >= 0 && Input.GetKey(right) && rb2d.velocity.x <= runningSpeed ||
-                        rb2d.velocity.x < 0 && Input.GetKey(right))
-                    {
-                        currentXForce = airForce;
-                    }
-                    
-                }
 
-                break;
+                    break;
 
-            case HState.stopping:
-                //Debug.Log("stopping");
-                changeAnim("stopping");
+            }
 
-                // If we are going left
-                if (rb2d.velocity.x < 0)
-                {
-                    currentXForce = stoppingForce;
-                } 
-                else
-                {
-                    currentXForce = -stoppingForce;
-                }
-
-                if (Mathf.Abs(rb2d.velocity.x) <= 0.5f)
-                {
-                    currentXForce = 0;
-                    hState = HState.idle;
-                }
-
-                break;
-
-        }
-
-        // Vertical movement state machine
-        switch (vState)
-        {
+            // Vertical movement state machine
+            switch (vState)
+            {
             
-            case VState.grounded:
-                //Debug.Log("grounded");
-                changeAnim("grounded");
+                case VState.grounded:
+                    //Debug.Log("grounded");
+                    changeAnim("grounded");
 
-                jumps = 2;
+                    jumps = 2;
 
-                if (Input.GetKeyDown(jump) && jumpable)
-                {
-                    jumps--;
-                    jumpable = false;
-                    squatFrames = 0;
-                    vState = VState.squatting;
-                    // Have to do this because no intentional fallthrough in C#
-                    goto case VState.squatting;
-                }
+                    if (Input.GetKeyDown(jump) && jumpable)
+                    {
+                        jumps--;
+                        jumpable = false;
+                        squatFrames = 0;
+                        vState = VState.squatting;
+                        // Have to do this because no intentional fallthrough in C#
+                        goto case VState.squatting;
+                    }
 
-                if (rb2d.velocity.y < -0.001)
-                {
-                    vState = VState.air;
-                }
+                    if (rb2d.velocity.y < -0.001)
+                    {
+                        vState = VState.air;
+                    }
 
-                break;
+                    break;
 
-            case VState.squatting:
-                //Debug.Log("squatting");
-                changeAnim("squatting");
-
-                if (squatFrames < 4)
-                {
-                    squatFrames++;
-                }
-                else
-                {
-                    rb2d.velocity = new Vector2(rb2d.velocity.x, firstJumpSpeed);
-                    jumpable = false;
-                    justJumped = true;
-                    vState = VState.air;
-                }
-
-                break;
-
-            case VState.air:
-                //Debug.Log("air");
-                if (rb2d.velocity.y > 0)
-                {
-                    changeAnim("air");
-                }
-                else
-                {
-                    changeAnim("falling");
-                }
-
-                // Double jump
-                if (Input.GetKeyDown(jump) && jumpable)
-                {
+                case VState.squatting:
+                    //Debug.Log("squatting");
                     changeAnim("squatting");
 
-                    // Snap from left to right
-                    if (rb2d.velocity.x > 0 && Input.GetKey(left))
+                    if (squatFrames < 4)
                     {
-                        rb2d.velocity = new Vector2(-runningSpeed, secondJumpSpeed);
-                    }
-                    // Snap from right to left
-                    else if (rb2d.velocity.x < 0 && Input.GetKey(right))
-                    {
-                        rb2d.velocity = new Vector2(runningSpeed, secondJumpSpeed);
+                        squatFrames++;
                     }
                     else
                     {
-                        rb2d.velocity = new Vector2(rb2d.velocity.x, secondJumpSpeed);
+                        rb2d.velocity = new Vector2(rb2d.velocity.x, firstJumpSpeed);
+                        jumpable = false;
+                        justJumped = true;
+                        vState = VState.air;
                     }
-                    jumpable = false;
-                    jumps--;
-                }
 
-                if (grounded && !justJumped)
-                {
-                    landingFrames = 0;
-                    vState = VState.landing;
-                }
+                    break;
 
-                justJumped = false;
+                case VState.air:
+                    //Debug.Log("air");
+                    if (rb2d.velocity.y > 0)
+                    {
+                        changeAnim("air");
+                    }
+                    else
+                    {
+                        changeAnim("falling");
+                    }
 
-                break;
+                    // Double jump
+                    if (Input.GetKeyDown(jump) && jumpable)
+                    {
+                        changeAnim("squatting");
 
-            case VState.landing:
-                //Debug.Log("landing");
-                changeAnim("landing");
+                        // Snap from left to right
+                        if (rb2d.velocity.x > 0 && Input.GetKey(left))
+                        {
+                            rb2d.velocity = new Vector2(-runningSpeed, secondJumpSpeed);
+                        }
+                        // Snap from right to left
+                        else if (rb2d.velocity.x < 0 && Input.GetKey(right))
+                        {
+                            rb2d.velocity = new Vector2(runningSpeed, secondJumpSpeed);
+                        }
+                        else
+                        {
+                            rb2d.velocity = new Vector2(rb2d.velocity.x, secondJumpSpeed);
+                        }
+                        jumpable = false;
+                        jumps--;
+                    }
 
-                if (landingFrames < 4)
-                {
-                    landingFrames++;
-                }
-                else
-                {
-                    vState = VState.grounded;
-                }
+                    if (grounded && !justJumped)
+                    {
+                        landingFrames = 0;
+                        vState = VState.landing;
+                    }
 
-                break;
+                    justJumped = false;
 
+                    break;
+
+                case VState.landing:
+                    //Debug.Log("landing");
+                    changeAnim("landing");
+
+                    if (landingFrames < 4)
+                    {
+                        landingFrames++;
+                    }
+                    else
+                    {
+                        vState = VState.grounded;
+                    }
+
+                    break;
+
+            }
         }
 
         // Fast falling
@@ -413,7 +429,7 @@ public class PlayerController : MonoBehaviour
     {
         string[] states = {"idle", "dashing", "running", "stopping",
                            "grounded", "squatting", "air", "falling", "landing",
-                           "cleaning"};
+                           "cleaning", "respawn"};
         for (int i = 0; i < states.Length; i++)
         {
             if (state == states[i])
@@ -442,6 +458,23 @@ public class PlayerController : MonoBehaviour
     public void Clean()
     {
         cleaned++;
+    }
+
+    public void Respawn()
+    {
+        Debug.Log("Respawning");
+        resetAnim();
+        anim.SetBool("respawn", true);
+        moveable = false;
+        rb2d.velocity = new Vector2();
+        if (name == "Player1")
+        {
+            transform.position = new Vector2(-2.38f, camera.transform.position.y + 1);
+        }
+        else
+        {
+            transform.position = new Vector2(14.13f, camera.transform.position.y + 1);
+        }
     }
 
 }
