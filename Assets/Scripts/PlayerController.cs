@@ -25,7 +25,7 @@ public class PlayerController : MonoBehaviour
     
     private bool justJumped;
 
-    private KeyCode left, right, down, jump;
+    private string horizontal, vertical, jump;
 
     private Rigidbody2D rb2d;
     private Animator anim;
@@ -48,19 +48,21 @@ public class PlayerController : MonoBehaviour
         Application.targetFrameRate = 60;
         Physics2D.gravity = new Vector3(0, -10, 0);
 
+        // Input.GetAxisRaw("Horizontal_P1")
+        // Input.GetAxisRaw("Vertical_P1")
+        // Input.GetAxisRaw("Horizontal_P2")
+        // Input.GetAxisRaw("Vertical_P2")
         if (name == "Player1")
         {
-            left = KeyCode.A;
-            right = KeyCode.D;
-            down = KeyCode.S;
-            jump = KeyCode.W;
+            horizontal = "Horizontal_P1";
+            vertical = "Vertical_P1";
+            jump = "Jump_P1";
         }
         else if (name == "Player2")
         {
-            left = KeyCode.LeftArrow;
-            right = KeyCode.RightArrow;
-            down = KeyCode.DownArrow;
-            jump = KeyCode.UpArrow;
+            horizontal = "Horizontal_P2";
+            vertical = "Vertical_P2";
+            jump = "Jump_P2";
         }
 
         moveable = true;
@@ -117,7 +119,7 @@ public class PlayerController : MonoBehaviour
                     currentXForce = 0;
 
                     // Want to move
-                    if (moveable && (Input.GetKey(left) || Input.GetKey(right)))
+                    if (moveable && Input.GetAxisRaw(horizontal) != 0)
                     {
                         if (grounded)
                         {
@@ -146,9 +148,10 @@ public class PlayerController : MonoBehaviour
                     if (moveable)
                     {
                         // Want to dash left
-                        if (Input.GetKey(left))
+                        Debug.Log("horizontal: " + Input.GetAxisRaw(horizontal));
+                        if (Input.GetAxisRaw(horizontal) == -1)
                         {
-                            // If we are moving to the right and slam left or we are already moving left
+                            // If we are moving to the right and slam left
                             if (rb2d.velocity.x <= 0)
                             {
                                 rb2d.velocity = new Vector2(-runningSpeed, rb2d.velocity.y);
@@ -165,7 +168,7 @@ public class PlayerController : MonoBehaviour
                             }
                         }
                         // Want to dash right
-                        else if (Input.GetKey(right))
+                        else if (Input.GetAxisRaw(horizontal) == 1)
                         {
                             // If we are moving left and slam right
                             if (rb2d.velocity.x >= 0)
@@ -198,11 +201,11 @@ public class PlayerController : MonoBehaviour
 
                     if (grounded)
                     {
-                        if (rb2d.velocity.x < 0 && Input.GetKey(left))
+                        if (rb2d.velocity.x < 0 && Input.GetAxisRaw(horizontal) == -1)
                         {
                             currentXForce = -constantSpeedForce;
                         }
-                        else if (rb2d.velocity.x > 0 && Input.GetKey(right))
+                        else if (rb2d.velocity.x > 0 && Input.GetAxisRaw(horizontal) == 1)
                         {
                             currentXForce = constantSpeedForce;
                         }
@@ -214,14 +217,14 @@ public class PlayerController : MonoBehaviour
                     else
                     {
                         // Moving left normally
-                        if (rb2d.velocity.x <= 0 && Input.GetKey(left) && rb2d.velocity.x >= -runningSpeed ||
-                            rb2d.velocity.x > 0 && Input.GetKey(left))
+                        if (rb2d.velocity.x <= 0 && Input.GetAxisRaw(horizontal) == -1 && rb2d.velocity.x >= -runningSpeed ||
+                            rb2d.velocity.x > 0 && Input.GetAxisRaw(horizontal) == -1)
                         {
                             currentXForce = -airForce;
                         }
                         // Moving right normally
-                        else if (rb2d.velocity.x >= 0 && Input.GetKey(right) && rb2d.velocity.x <= runningSpeed ||
-                            rb2d.velocity.x < 0 && Input.GetKey(right))
+                        else if (rb2d.velocity.x >= 0 && Input.GetAxisRaw(horizontal) == 1 && rb2d.velocity.x <= runningSpeed ||
+                            rb2d.velocity.x < 0 && Input.GetAxisRaw(horizontal) == 1)
                         {
                             currentXForce = airForce;
                         }
@@ -264,7 +267,8 @@ public class PlayerController : MonoBehaviour
 
                     jumps = 2;
 
-                    if (Input.GetKeyDown(jump) && jumpable)
+                    Debug.Log("GetAxisRaw(jump) " + name + ": " + Input.GetAxisRaw(jump));
+                    if (Input.GetAxisRaw(jump) == 1 && jumpable)
                     {
                         jumps--;
                         jumpable = false;
@@ -311,17 +315,17 @@ public class PlayerController : MonoBehaviour
                     }
 
                     // Double jump
-                    if (Input.GetKeyDown(jump) && jumpable)
+                    if (Input.GetAxisRaw(jump) == 1 && jumpable)
                     {
                         changeAnim("squatting");
 
                         // Snap from left to right
-                        if (rb2d.velocity.x > 0 && Input.GetKey(left))
+                        if (rb2d.velocity.x > 0 && Input.GetAxisRaw(horizontal) == -1)
                         {
                             rb2d.velocity = new Vector2(-runningSpeed, secondJumpSpeed);
                         }
                         // Snap from right to left
-                        else if (rb2d.velocity.x < 0 && Input.GetKey(right))
+                        else if (rb2d.velocity.x < 0 && Input.GetAxisRaw(horizontal) == 1)
                         {
                             rb2d.velocity = new Vector2(runningSpeed, secondJumpSpeed);
                         }
@@ -362,7 +366,8 @@ public class PlayerController : MonoBehaviour
         }
 
         // Fast falling
-        if (Input.GetKey(down) && !grounded)
+        Debug.Log("GetAxisRaw(vertical) " + name + ": " + Input.GetAxisRaw(vertical));
+        if (Input.GetAxisRaw(vertical) == -1 && !grounded)
         {
             rb2d.gravityScale = 5;
         }
@@ -372,7 +377,7 @@ public class PlayerController : MonoBehaviour
         }
 
         // Reset jumpability if you should be able to jump
-        if (Input.GetKeyUp(jump) && jumps > 0 ||
+        if (Input.GetAxisRaw(vertical) == 0 && jumps > 0 ||
             isGrounded())
         {
             jumpable = true;
@@ -381,11 +386,11 @@ public class PlayerController : MonoBehaviour
         // Make character face way you want to go
         if (!cleaning)
         {
-            if (Input.GetKey(left))
+            if (Input.GetAxisRaw(horizontal) == -1)
             {
                 sr.flipX = true;
             }
-            else if (Input.GetKey(right))
+            else if (Input.GetAxisRaw(horizontal) == 1)
             {
                 sr.flipX = false;
             }
